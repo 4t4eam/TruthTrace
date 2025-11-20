@@ -52,7 +52,17 @@ export default function CheckPage() {
       const data = await response.json()
       
       // AI 응답 추가
-      setMessages(prev => [...prev, { role: 'assistant', content: data.response }])
+      setMessages(prev => [...prev,
+      {
+        role: 'assistant',
+        content: `${data.response}\n\n### 출처\n${
+        data.sources
+          .slice(0, 5)
+          .map((s: any) => `- ${s.title}: ${s.link}`)
+          .join('\n')
+        }`,
+       }
+      ])
     } catch (error) {
       console.error('Error:', error)
       setMessages(prev => [
