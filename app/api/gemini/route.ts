@@ -11,18 +11,42 @@ export async function POST(request: Request) {
       )
     }
 
-    const apiKey = process.env.GEMINI_API_KEY
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY
+    const SERPAPI_KEY = process.env.SERPAPI_KEY
 
-    if (!apiKey) {
+    if (!GEMINI_API_KEY || !SERPAPI_KEY) {
       return NextResponse.json(
-        { error: 'API 키가 설정되지 않았습니다.' },
+        { error: '필요한 API 키가 설정되지 않았습니다.' },
         { status: 500 }
       )
     }
 
-    // Gemini API 호출
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+    //
+    // 1) SerpAPI 검색
+    //
+    const serpRes = await fetch(
+      `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(
+        message
+      )}&api_key=${SERPAPI_KEY}`
+    )
+
+    const serpData = await serpRes.json()
+    const results = serpData.organic_results || []
+
+    // 검색 결과 문자열 (LLM 입력용)
+    const sourcesText = results
+      .slice(0, 5)
+      .map((item: any) => {
+        return `- 제목: ${item.title}\n  URL: ${item.link}\n  요약: ${item.snippet || '요약 없음'}`
+      })
+      .join('\n')
+
+
+    //
+    // 2) Gemini 분석 요청
+    //
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: {
@@ -33,7 +57,25 @@ export async function POST(request: Request) {
             {
               parts: [
                 {
-                  text: `다음 텍스트의 신뢰도를 평가해주세요. 신뢰도를 0-100점 척도로 평가하고, 그 이유를 간단히 설명해주세요. 사실 확인이 가능한 주장인지, 편향되거나 왜곡된 정보는 없는지, 출처가 명확한지 등을 고려해주세요.\n\n텍스트: "${message}"`,
+                  text: `
+다음 텍스트의 신뢰도를 평가하세요. 반드시 아래 검색 결과를 기반으로 판단하십시오.
+마지막 부분에 표시하는 출처 목록이 아닌, 문장 중간에 삽입하는 출처는 다음과 같은 형식을 따라야 합니다.
+링크 문법 예시:
+이것은 다음의 출처를 참고한 문장.<sup>[1]</sup>
+재활용<sup>[1]</sup>도 가능.
+[1]: 여기에 링크 입력
+
+[텍스트]
+${message}
+
+[검색 결과]
+${sourcesText}
+
+출력 형식:
+1) 신뢰도 점수 (0~100)
+2) 판단 근거
+3) 참고한 출처 목록 (URL 포함)
+                  `,
                 },
               ],
             },
@@ -42,23 +84,18 @@ export async function POST(request: Request) {
       }
     )
 
-    if (!response.ok) {
-      const errorData = await response.json()
-      console.error('Gemini API 오류:', errorData)
-      return NextResponse.json(
-        { error: 'Gemini API 요청 실패' },
-        { status: response.status }
-      )
-    }
-
-    const data = await response.json()
-    
-    // Gemini API 응답에서 텍스트 추출
+    const geminiData = await geminiRes.json()
     const generatedText =
-      data.candidates?.[0]?.content?.parts?.[0]?.text ||
+      geminiData.candidates?.[0]?.content?.parts?.[0]?.text ||
       '응답을 생성할 수 없습니다.'
 
-    return NextResponse.json({ response: generatedText })
+    //
+    // 3) 전체 응답 반환
+    //
+    return NextResponse.json({
+      response: generatedText,
+      sources: results,
+    })
   } catch (error) {
     console.error('서버 오류:', error)
     return NextResponse.json(
