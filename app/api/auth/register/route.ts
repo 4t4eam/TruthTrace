@@ -38,7 +38,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ message: "회원가입 성공" });
   } catch (e) {
-    console.error("REGISTER ERROR:", e);
     return NextResponse.json({ error: "서버 오류" }, { status: 500 });
   }
+
 }
