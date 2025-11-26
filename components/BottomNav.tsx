@@ -7,9 +7,9 @@ export default function BottomNav() {
   const pathname = usePathname()
 
   const navItems = [
-    { name: '검색', path: '/search', icon: '🔍' },
+    { name: '로그인', path: '/login', icon: '🔍' },
     { name: '검사', path: '/check', icon: '✓' },
-    { name: '둘러보기', path: '/explore', icon: '🌐' },
+    { name: '회원가입', path: '/register', icon: '🌐' },
   ]
 
   return (
