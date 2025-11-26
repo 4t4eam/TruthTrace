@@ -4,10 +4,16 @@ import { useState, useRef, useEffect } from 'react'
 import BottomNav from '@/components/BottomNav'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import jwt_decode from 'jwt-decode'
 
 interface Message {
   role: 'user' | 'assistant'
   content: string
+}
+
+interface JwtPayload {
+  userId: string
+  email: string
 }
 
 export default function CheckPage() {
@@ -15,6 +21,30 @@ export default function CheckPage() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [hydrated, setHydrated] = useState(false)
+  const [token, setToken] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
+
+  // Hydration & 초기 메시지 불러오기
+  useEffect(() => {
+    setHydrated(true)
+    const savedToken = localStorage.getItem('token')
+    if (savedToken) {
+      setToken(savedToken)
+      try {
+        const payload: JwtPayload = jwt_decode(savedToken)
+        setUserId(payload.userId)
+
+        // 유저별 메시지 불러오기
+        fetch('/api/chat', { headers: { 'x-user-id': payload.userId } })
+          .then(res => res.json())
+          .then(data => setMessages(data.messages || []))
+          .catch(err => console.error(err))
+      } catch (err) {
+        console.error('JWT decode error:', err)
+      }
+    }
+  }, [])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -26,63 +56,79 @@ export default function CheckPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!input.trim() || loading) return
+    if (!input.trim() || loading || !userId) return
 
     const userMessage = input.trim()
     setInput('')
-    
-    // 사용자 메시지 추가
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }])
+
+    const newMessages = [...messages, { role: 'user', content: userMessage }]
+    setMessages(newMessages)
     setLoading(true)
 
     try {
+      // AI 응답 호출
       const response = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userMessage }),
+      })
+      if (!response.ok) throw new Error('API 요청 실패')
+
+      const data = await response.json()
+      const aiMessage = {
+        role: 'assistant',
+        content: `${data.response}\n\n### 출처\n${data.sources
+          .slice(0, 5)
+          .map((s: any) => `- ${s.title}: ${s.link}`)
+          .join('\n')}`,
+      }
+
+      const updatedMessages = [...newMessages, aiMessage]
+      setMessages(updatedMessages)
+
+      // DB에 메시지 저장 (유저별)
+      await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-user-id': userId,
         },
-        body: JSON.stringify({ message: userMessage }),
+        body: JSON.stringify({ role: 'user', content: userMessage }),
       })
-
-      if (!response.ok) {
-        throw new Error('API 요청 실패')
-      }
-
-      const data = await response.json()
-      
-      // AI 응답 추가
-      setMessages(prev => [...prev,
-      {
-        role: 'assistant',
-        content: `${data.response}\n\n### 출처\n${
-        data.sources
-          .slice(0, 5)
-          .map((s: any) => `- ${s.title}: ${s.link}`)
-          .join('\n')
-        }`,
-       }
-      ])
-    } catch (error) {
-      console.error('Error:', error)
-      setMessages(prev => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: '오류가 발생했습니다. 다시 시도해주세요.',
+      await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': userId,
         },
-      ])
+        body: JSON.stringify({ role: 'assistant', content: aiMessage.content }),
+      })
+    } catch (error) {
+      console.error(error)
+      const errorMessage = { role: 'assistant', content: '오류가 발생했습니다. 다시 시도해주세요.' }
+      setMessages([...newMessages, errorMessage])
     } finally {
       setLoading(false)
     }
   }
 
+  if (!hydrated) return null // SSR 시 초기 Hydration 방지
+
   return (
     <div className="flex flex-col h-screen max-w-lg mx-auto bg-gradient-to-b from-blue-50 to-white">
       {/* 헤더 */}
-      <header className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 shadow-lg">
-        <h1 className="text-xl font-bold text-center">🔍 신뢰도 검사</h1>
-        <p className="text-xs text-center text-blue-100 mt-1">AI 기반 텍스트 신뢰도 분석</p>
+      <header className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 shadow-lg flex justify-between items-center">
+        <div>
+          <h1 className="text-xl font-bold text-center">🔍 신뢰도 검사</h1>
+          <p className="text-xs text-center text-blue-100 mt-1">AI 기반 텍스트 신뢰도 분석</p>
+        </div>
+        <div className="ml-4">
+          {token ? (
+            <span title="로그인됨" className="text-green-400 text-lg">✅</span>
+          ) : (
+            <span title="로그인 필요" className="text-red-400 text-lg">❌</span>
+          )}
+        </div>
       </header>
 
       {/* 메시지 영역 */}
@@ -100,13 +146,11 @@ export default function CheckPage() {
             </div>
           </div>
         )}
-        
+
         {messages.map((msg, idx) => (
           <div
             key={idx}
-            className={`flex ${
-              msg.role === 'user' ? 'justify-end' : 'justify-start'
-            } animate-fadeIn`}
+            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`}
           >
             <div
               className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-md ${
