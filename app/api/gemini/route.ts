@@ -22,51 +22,98 @@ export async function POST(request: Request) {
     }
 
     //
-    // 1) SerpAPI 검색
+    // =========================================================================
+    // 1) LLM에게 "검색 쿼리 생성" 요청
+    // =========================================================================
     //
-    const serpRes = await fetch(
-      `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(
-        message
-      )}&api_key=${SERPAPI_KEY}`
-    )
-
-    const serpData = await serpRes.json()
-    const results = serpData.organic_results || []
-
-    // 검색 결과 문자열 (LLM 입력용)
-    const sourcesText = results
-      .slice(0, 5)
-      .map((item: any) => {
-        return `- 제목: ${item.title}\n  URL: ${item.link}\n  요약: ${item.snippet || '요약 없음'}`
-      })
-      .join('\n')
-
-
-    //
-    // 2) Gemini 분석 요청
-    //
-    const geminiRes = await fetch(
+    const queryGenRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [
             {
               parts: [
                 {
                   text: `
-다음 텍스트의 신뢰도를 평가하세요. 반드시 아래 검색 결과를 기반으로 판단하십시오.
-마지막 부분에 표시하는 출처 목록이 아닌, 문장 중간에 삽입하는 출처는 다음과 같은 형식을 따라야 합니다.
-링크 문법 예시:
-이것은 다음의 출처를 참고한 문장.<sup>[1]</sup>
-재활용<sup>[1]</sup>도 가능.
-[1]: 여기에 링크 입력
+사용자의 메시지를 가장 잘 설명하고,
+사실 검증을 위해 적절한 구글 검색 쿼리를 한 문장으로 작성하세요.
+검색 쿼리만 순수하게 출력하세요.
 
-[텍스트]
+[사용자 메시지]
 ${message}
+                  `
+                }
+              ]
+            }
+          ]
+        })
+      }
+    )
+
+    const queryGenData = await queryGenRes.json()
+    const searchQuery =
+      queryGenData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
+      message
+
+    //
+    // =========================================================================
+    // 2) 생성된 검색 쿼리(searchQuery)로 SerpAPI 검색
+    // =========================================================================
+    //
+    const serpRes = await fetch(
+      `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(
+        searchQuery
+      )}&api_key=${SERPAPI_KEY}`
+    )
+
+    const serpData = await serpRes.json()
+    const results = serpData.organic_results || []
+
+    // LLM 입력용 요약
+    const sourcesText = results
+      .slice(0, 5)
+      .map((item: any) => {
+        return `- 제목: ${item.title}
+  URL: ${item.link}
+  요약: ${item.snippet || '요약 없음'}`
+      })
+      .join('\n')
+
+    //
+    // =========================================================================
+    // 3) 검색 정보 + 원본 메시지로 최종 LLM 분석 요청
+    // =========================================================================
+    //
+    const finalRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `
+다음 사용자 텍스트의 신뢰도를 분석하세요.
+아래 검색 결과를 기반으로 판단하고,
+논문/뉴스 등 신뢰도 있는 사이트를 우선적으로 고려하세요.
+
+링크 삽입 규칙:
+문장 중간에 삽입하는 출처는 예시 형식을 따르세요.
+예:
+이 문장은 신뢰도 평가 참고.[1]
+재사용[1][2] 가능.
+[1]: URL
+[2]: URL
+
+[사용자 메시지]
+${message}
+
+[검색 쿼리]
+${searchQuery}
 
 [검색 결과]
 ${sourcesText}
@@ -75,26 +122,27 @@ ${sourcesText}
 1) 신뢰도 점수 (0~100)
 2) 판단 근거
 3) 참고한 출처 목록 (URL 포함)
-                  `,
-                },
-              ],
-            },
-          ],
-        }),
+                  `
+                }
+              ]
+            }
+          ]
+        })
       }
     )
 
-    const geminiData = await geminiRes.json()
+    const finalData = await finalRes.json()
     const generatedText =
-      geminiData.candidates?.[0]?.content?.parts?.[0]?.text ||
+      finalData.candidates?.[0]?.content?.parts?.[0]?.text ||
       '응답을 생성할 수 없습니다.'
 
     //
-    // 3) 전체 응답 반환
+    // 4) 전체 응답 반환
     //
     return NextResponse.json({
+      searchQuery,
       response: generatedText,
-      sources: results,
+      sources: results
     })
   } catch (error) {
     console.error('서버 오류:', error)
