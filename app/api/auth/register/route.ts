@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { getSheet, SHEET_RANGE } from "@/lib/googleSheets";
+import { v4 as uuidv4 } from "uuid";
 
 export async function POST(req: Request) {
   try {
@@ -18,27 +19,27 @@ export async function POST(req: Request) {
     });
 
     const rows = read.data.values || [];
-
-    const exists = rows.find((row) => row[0] === email);
+    const exists = rows.find((row) => row[1] === email); // email은 1번 컬럼
     if (exists) {
       return NextResponse.json({ error: "이미 존재하는 이메일입니다." }, { status: 400 });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
+    const userId = uuidv4(); // 고유 userId 생성
 
-    // 새 데이터 추가
+    // 새 사용자 추가
     await sheets.spreadsheets.values.append({
       spreadsheetId: process.env.GOOGLE_SHEETS_SPREADSHEET_ID,
       range: SHEET_RANGE,
       valueInputOption: "USER_ENTERED",
       requestBody: {
-        values: [[email, passwordHash, new Date().toISOString()]],
+        values: [[userId, email, passwordHash, new Date().toISOString()]],
       },
     });
 
-    return NextResponse.json({ message: "회원가입 성공" });
+    return NextResponse.json({ message: "회원가입 성공", userId });
   } catch (e) {
+    console.error("REGISTER ERROR:", e);
     return NextResponse.json({ error: "서버 오류" }, { status: 500 });
   }
-
 }
