@@ -5,10 +5,13 @@ import BottomNav from '@/components/BottomNav'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import jwt_decode from 'jwt-decode'
+import ChatDrawer from '@/components/ChatDrawer'
 
 interface Message {
   role: 'user' | 'assistant'
   content: string
+  createdAt?: string
+  sessionId?: string
 }
 
 interface JwtPayload {
@@ -25,6 +28,10 @@ export default function CheckPage() {
   const [token, setToken] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
 
+  // 세션 관련
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
+
   // Hydration & 초기 메시지 불러오기
   useEffect(() => {
     setHydrated(true)
@@ -35,16 +42,57 @@ export default function CheckPage() {
         const payload: JwtPayload = jwt_decode(savedToken)
         setUserId(payload.userId)
 
-        // 유저별 메시지 불러오기
-        fetch('/api/chat', { headers: { 'x-user-id': payload.userId } })
-          .then(res => res.json())
-          .then(data => setMessages(data.messages || []))
-          .catch(err => console.error(err))
+        // 초기: 세션 목록 불러와서 가장 최근 세션 로드 (또는 새 세션 생성)
+        initSessions(savedToken, payload.userId)
       } catch (err) {
         console.error('JWT decode error:', err)
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const initSessions = async (tok: string, uid: string) => {
+    try {
+      const res = await fetch('/api/chat/sessions', {
+        headers: { 'x-user-id': uid },
+      })
+      const data = await res.json()
+      const sessions = data.sessions || []
+      if (sessions.length > 0) {
+        const first = sessions[0].sessionId
+        setCurrentSessionId(first)
+        await loadMessages(first, uid)
+      } else {
+        // 새 세션 생성
+        const createRes = await fetch('/api/chat/sessions', {
+          method: 'POST',
+          headers: { 'x-user-id': uid },
+        })
+        const createData = await createRes.json()
+        if (createData.sessionId) {
+          setCurrentSessionId(createData.sessionId)
+          setMessages([])
+        }
+      }
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const loadMessages = async (sessionId: string, uid?: string) => {
+    if (!sessionId) return
+    try {
+      const user = uid || userId
+      if (!user) return
+      const res = await fetch(`/api/chat?sessionId=${encodeURIComponent(sessionId)}`, {
+        headers: { 'x-user-id': user },
+      })
+      const data = await res.json()
+      setMessages(data.messages || [])
+    } catch (e) {
+      console.error(e)
+    }
+  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -61,12 +109,29 @@ export default function CheckPage() {
     const userMessage = input.trim()
     setInput('')
 
-    const newMessages = [...messages, { role: 'user', content: userMessage }]
+    // 만약 currentSessionId가 없다면 새로 생성
+    let sessionId = currentSessionId
+    if (!sessionId) {
+      // create session
+      try {
+        const res = await fetch('/api/chat/sessions', {
+          method: 'POST',
+          headers: { 'x-user-id': userId },
+        })
+        const data = await res.json()
+        sessionId = data.sessionId
+        setCurrentSessionId(sessionId)
+      } catch (e) {
+        console.error(e)
+      }
+    }
+
+    const newMessages = [...messages, { role: 'user', content: userMessage, sessionId } as Message]
     setMessages(newMessages)
     setLoading(true)
 
     try {
-      // AI 응답 호출
+      // AI 응답 호출 (기존 /api/gemini 호출 유지)
       const response = await fetch('/api/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -75,25 +140,20 @@ export default function CheckPage() {
       if (!response.ok) throw new Error('API 요청 실패')
 
       const data = await response.json()
-      const aiMessage = {
-        role: 'assistant',
-        content: `${data.response}\n\n### 출처\n${data.sources
-          .slice(0, 5)
-          .map((s: any) => `- ${s.title}: ${s.link}`)
-          .join('\n')}`,
-      }
+      const aiContent = `${data.response}\n\n### 출처\n${(data.sources || []).slice(0, 5).map((s: any) => `- ${s.title}: ${s.link}`).join('\n')}`
 
+      const aiMessage = { role: 'assistant', content: aiContent, sessionId } as Message
       const updatedMessages = [...newMessages, aiMessage]
       setMessages(updatedMessages)
 
-      // DB에 메시지 저장 (유저별)
+      // DB에 메시지 저장 (유저별 세션 포함)
       await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-user-id': userId,
         },
-        body: JSON.stringify({ role: 'user', content: userMessage }),
+        body: JSON.stringify({ role: 'user', content: userMessage, sessionId }),
       })
       await fetch('/api/chat', {
         method: 'POST',
@@ -101,7 +161,7 @@ export default function CheckPage() {
           'Content-Type': 'application/json',
           'x-user-id': userId,
         },
-        body: JSON.stringify({ role: 'assistant', content: aiMessage.content }),
+        body: JSON.stringify({ role: 'assistant', content: aiContent, sessionId }),
       })
     } catch (error) {
       console.error(error)
@@ -122,7 +182,13 @@ export default function CheckPage() {
           <h1 className="text-xl font-bold text-center">🔍 신뢰도 검사</h1>
           <p className="text-xs text-center text-blue-100 mt-1">AI 기반 텍스트 신뢰도 분석</p>
         </div>
-        <div className="ml-4">
+        <div className="ml-4 flex items-center gap-2">
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="text-sm bg-white/10 px-3 py-1 rounded-md"
+          >
+            내 채팅
+          </button>
           {token ? (
             <span title="로그인됨" className="text-green-400 text-lg">✅</span>
           ) : (
@@ -133,7 +199,7 @@ export default function CheckPage() {
 
       {/* 메시지 영역 */}
       <div className="flex-1 overflow-y-auto p-4 pb-24 space-y-3">
-        {messages.length === 0 && (
+        {(!messages || messages.length === 0) && (
           <div className="text-center mt-20">
             <div className="bg-white rounded-2xl p-8 shadow-md mx-4">
               <div className="text-5xl mb-4">💬</div>
@@ -229,6 +295,17 @@ export default function CheckPage() {
 
       {/* 하단 네비게이션 */}
       <BottomNav />
+
+      {/* Drawer */}
+      <ChatDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onSelect={(sid) => {
+          setCurrentSessionId(sid)
+          loadMessages(sid)
+        }}
+        token={token}
+      />
     </div>
   )
 }
