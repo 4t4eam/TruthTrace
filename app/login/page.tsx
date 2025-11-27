@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import BottomNav from '@/components/BottomNav'
+import LogoutButton from "@/components/LogoutButton";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -57,6 +58,8 @@ export default function LoginPage() {
       >
         로그인
       </button>
+
+      <LogoutButton />
 
       {message && <p className="mt-4 text-center">{message}</p>}
       <BottomNav />
