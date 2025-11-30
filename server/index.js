@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { google } from 'googleapis';
 import dotenv from 'dotenv';
+import chatRouter from './routes/chat.js';
 
 dotenv.config();
 
@@ -90,6 +91,8 @@ app.post('/api/auth/login', async (req, res) => {
   const token = jwt.sign({ email, name: user[2] }, JWT_SECRET, { expiresIn: '7d' });
   res.json({ token, email, name: user[2] });
 });
+
+app.use('/api/chat', chatRouter);
 
 // 서버 시작
 app.listen(PORT, () => {
