@@ -10,6 +10,7 @@ import { Footer } from './components/Footer';
 import { useDarkMode } from './hooks/useDarkMode';
 import { NewsService, NewsItem } from './lib/newsService';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
+import { FactoModal } from './components/FactoModal';
 
 export default function App() {
   return (
@@ -22,7 +23,7 @@ export default function App() {
 function AppContent() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('전체');
-  const [selectedCountry, setSelectedCountry] = useState('South Korea');
+  const [selectedCountry, setSelectedCountry] = useState('United States');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -33,6 +34,7 @@ function AppContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isFactoModalOpen, setIsFactoModalOpen] = useState(false);
 
   // 다크모드 자동 인식
   useDarkMode();
@@ -98,6 +100,8 @@ function AppContent() {
         userName={userName}
         userImage={userImage}
         isMenuOpen={isMenuOpen}
+        isFactoOpen={isFactoModalOpen}
+        onFactoClose={() => setIsFactoModalOpen(false)}
       />
 
       {/* 카테고리 바 */}
@@ -137,6 +141,7 @@ function AppContent() {
       <SideMenu 
         isOpen={isMenuOpen}
         onClose={() => setIsMenuOpen(false)}
+        onFactoOpen={() => setIsFactoModalOpen(true)}
       />
 
       {/* 로그인/회원가입 모달 */}
@@ -164,6 +169,12 @@ function AppContent() {
           recommendedNews={recommendedNews}
         />
       )}
+
+      {/* Facto 모달 */}
+      <FactoModal 
+        isOpen={isFactoModalOpen} 
+        onClose={() => setIsFactoModalOpen(false)} 
+      />
     </div>
   );
 }

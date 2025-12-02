@@ -125,6 +125,24 @@ const translations: Record<Language, Record<string, string>> = {
     'footer.help': 'Help Center',
     'footer.rights': 'All rights reserved.',
     'category.tech': 'Tech',
+    
+    // Facto
+    'facto.subtitle': 'AI-powered fact checking and analysis',
+    'facto.input.label': 'Enter text to analyze',
+    'facto.input.placeholder': 'Paste a news article, claim, or statement to fact-check...',
+    'facto.characters': 'characters',
+    'facto.clear': 'Clear',
+    'facto.example.label': 'Example',
+    'facto.example.1': 'The moon landing was filmed in a Hollywood studio.',
+    'facto.example.2': 'Drinking 8 glasses of water daily is essential for health.',
+    'facto.analyzing': 'Analyzing...',
+    'facto.analyze': 'Analyze',
+    'facto.info.title': 'How Facto works',
+    'facto.info.1': 'AI analyzes the credibility of statements and claims',
+    'facto.info.2': 'Cross-references with reliable news sources',
+    'facto.info.3': 'Provides context and related information',
+    'facto.info.4': 'Identifies potential misinformation',
+    'common.cancel': 'Cancel',
   },
   ko: {
     // Header
@@ -217,6 +235,24 @@ const translations: Record<Language, Record<string, string>> = {
     'footer.help': '도움말 센터',
     'footer.rights': '저작권 보호',
     'category.tech': '기술',
+    
+    // Facto
+    'facto.subtitle': 'AI 기반 사실 확인 및 분석',
+    'facto.input.label': '분석할 텍스트 입력',
+    'facto.input.placeholder': '뉴스 기사, 주장, 문장을 복사하여 붙여넣으세요...',
+    'facto.characters': '문자',
+    'facto.clear': '지우기',
+    'facto.example.label': '예시',
+    'facto.example.1': '달 착륙은 홀리우드 스튜디오에서 촬영되었습니다.',
+    'facto.example.2': '하루에 8컵의 물을 마시는 것이 건강에 필수적입니다.',
+    'facto.analyzing': '분석 중...',
+    'facto.analyze': '분석하기',
+    'facto.info.title': 'Facto 작동 방식',
+    'facto.info.1': 'AI가 주장과 청구의 신뢰성을 분석합니다',
+    'facto.info.2': '신뢰할 수 있는 뉴스 출처와 교차 참조합니다',
+    'facto.info.3': '문맥과 관련 정보를 제공합니다',
+    'facto.info.4': '잠재적인 오해 정보를 식별합니다',
+    'common.cancel': '취소',
   },
   zh: {
     // Header
@@ -309,6 +345,24 @@ const translations: Record<Language, Record<string, string>> = {
     'footer.help': '帮助中心',
     'footer.rights': '版权所有',
     'category.tech': '科技',
+    
+    // Facto
+    'facto.subtitle': 'AI驱动的事实核查和分析',
+    'facto.input.label': '输入要分析的文本',
+    'facto.input.placeholder': '粘贴新闻文章、声明或陈述以进行事实核查...',
+    'facto.characters': '字符',
+    'facto.clear': '清除',
+    'facto.example.label': '示例',
+    'facto.example.1': '月球登陆是在好莱坞工作室拍摄的。',
+    'facto.example.2': '每天喝8杯水对健康至关重要。',
+    'facto.analyzing': '分析中...',
+    'facto.analyze': '分析',
+    'facto.info.title': 'Facto的工作原理',
+    'facto.info.1': 'AI分析声明和主张的可信度',
+    'facto.info.2': '与可靠的新闻来源交叉引用',
+    'facto.info.3': '提供背景信息和相关资料',
+    'facto.info.4': '识别潜在的错误信息',
+    'common.cancel': '取消',
   },
   ja: {
     // Header
@@ -401,5 +455,23 @@ const translations: Record<Language, Record<string, string>> = {
     'footer.help': 'ヘルプセンター',
     'footer.rights': 'すべての権利を保有しています。',
     'category.tech': 'テクノロジー',
+    
+    // Facto
+    'facto.subtitle': 'AI駆動の事実確認と分析',
+    'facto.input.label': '分析するテキストを入力',
+    'facto.input.placeholder': 'ニュース記事、主張、または声明を貼り付けて事実確認...',
+    'facto.characters': '文字',
+    'facto.clear': 'クリア',
+    'facto.example.label': '例',
+    'facto.example.1': '月面着陸はハリウッドスタジオで撮影されました。',
+    'facto.example.2': '1日8杯の水を飲むことは健康に不可欠です。',
+    'facto.analyzing': '分析中...',
+    'facto.analyze': '分析',
+    'facto.info.title': 'Factoの仕組み',
+    'facto.info.1': 'AIが主張と声明の信頼性を分析します',
+    'facto.info.2': '信頼できるニュースソースと交差参照します',
+    'facto.info.3': '文脈と関連情報を提供します',
+    'facto.info.4': '潜在的な誤った情報を特定します',
+    'common.cancel': 'キャンセル',
   },
 };

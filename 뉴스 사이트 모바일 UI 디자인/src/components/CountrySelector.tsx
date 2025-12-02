@@ -1,5 +1,6 @@
 import ReactFlagsSelect from 'react-flags-select';
 import { useEffect, useState } from 'react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface CountrySelectorProps {
   selectedCountry: string;
@@ -22,7 +23,8 @@ const countryNameMap: Record<string, string> = {
 };
 
 export function CountrySelector({ selectedCountry, onCountrySelect }: CountrySelectorProps) {
-  const [selected, setSelected] = useState(countryCodeMap[selectedCountry] || 'KR');
+  const { t } = useLanguage();
+  const [selected, setSelected] = useState(countryCodeMap[selectedCountry] || 'US');
   const [isMobile, setIsMobile] = useState(false);
 
   const handleSelect = (code: string) => {
@@ -52,18 +54,21 @@ export function CountrySelector({ selectedCountry, onCountrySelect }: CountrySel
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // 언어에 따른 국가명 레이블
+  const customLabels = {
+    US: t('country.us'),
+    KR: t('country.kr'),
+    CN: t('country.cn'),
+    JP: t('country.jp')
+  };
+
   return (
     <div className="country-selector-wrapper">
       <ReactFlagsSelect
         selected={selected}
         onSelect={handleSelect}
         countries={['US', 'KR', 'CN', 'JP']}
-        customLabels={{
-          US: 'United States',
-          KR: 'South Korea',
-          CN: 'China',
-          JP: 'Japan'
-        }}
+        customLabels={customLabels}
         placeholder="Select Country"
         searchable={false}
         showSelectedLabel={!isMobile}
@@ -76,6 +81,12 @@ export function CountrySelector({ selectedCountry, onCountrySelect }: CountrySel
         /* react-flags-select 커스텀 스타일 */
         .country-selector-wrapper {
           display: inline-block;
+          position: relative;
+        }
+        
+        /* 드롭다운이 올바르게 표시되도록 */
+        .country-flag-select {
+          position: relative !important;
         }
         
         .country-flag-select button {
@@ -151,6 +162,10 @@ export function CountrySelector({ selectedCountry, onCountrySelect }: CountrySel
           max-height: 320px !important;
           overflow-y: auto !important;
           min-width: 192px !important;
+          z-index: 9999 !important;
+          position: absolute !important;
+          right: 0 !important;
+          top: 100% !important;
         }
 
         .dark .country-flag-select ul {
@@ -163,6 +178,9 @@ export function CountrySelector({ selectedCountry, onCountrySelect }: CountrySel
           font-size: 14px !important;
           transition: all 0.2s ease !important;
           color: rgb(75, 85, 99) !important;
+          display: flex !important;
+          align-items: center !important;
+          cursor: pointer !important;
         }
 
         .dark .country-flag-select ul li {
