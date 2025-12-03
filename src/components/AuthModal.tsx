@@ -1,14 +1,15 @@
 import { useState } from 'react';
-import { X, Eye, EyeOff } from 'lucide-react';
+import { X, Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import * as authService from '../lib/authService';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLogin: (email: string, password: string) => void;
+  onLoginSuccess: (name: string, email: string) => void;
 }
 
-export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
+export function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModalProps) {
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,72 +18,28 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
   const [error, setError] = useState('');
   const { t } = useLanguage();
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    try {
+      if (isLoginMode) {
+        const res = await authService.login(email, password);
+        onLoginSuccess(res.name, res.email);
+        onClose();
+      } else {
+        await authService.signup(name, email, password);
+        setIsLoginMode(true);
+        alert('회원가입이 완료되었습니다! 로그인해주세요.');
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.error || '오류가 발생했습니다.');
+    }
+  };
+
   if (!isOpen) return null;
 
-  const handleSignup = async () => {
-    setError('');
-
-    try {
-      const res = await fetch('http://localhost:4000/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ name, email, password }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || '회원가입 실패');
-        return;
-      }
-
-      alert('회원가입이 완료되었습니다.');
-      setIsLoginMode(true);
-      setEmail('');
-      setPassword('');
-    } catch {
-      setError('서버와 통신할 수 없습니다.');
-    }
-  };
-
-  const handleLogin = async () => {
-    setError('');
-
-    try {
-      const res = await fetch('http://localhost:4000/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || '로그인 실패');
-        return;
-      }
-
-      onLogin(email, password);
-      onClose();
-    } catch {
-      setError('서버와 통신할 수 없습니다.');
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isLoginMode) {
-      handleLogin();
-    } else {
-      handleSignup();
-    }
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* 오버레이 */}
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300"
         onClick={onClose}
@@ -92,22 +49,16 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
         className="relative bg-white dark:bg-black w-full max-w-md animate-slide-up"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 닫기 버튼 */}
         <button
           onClick={onClose}
           className="absolute top-6 right-6 p-1 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-          aria-label="닫기"
         >
           <X className="w-5 h-5" />
         </button>
 
         <div className="px-12 py-12">
-          {/* 제목 */}
           <div className="mb-10">
-            <h2
-              className="text-4xl text-gray-900 dark:text-white mb-3 tracking-tight"
-              style={{ fontFamily: 'Georgia, serif' }}
-            >
+            <h2 className="text-4xl text-gray-900 dark:text-white mb-3 tracking-tight">
               {isLoginMode ? t('auth.login') : t('auth.signup')}
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
@@ -115,49 +66,41 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
             </p>
           </div>
 
-          {/* 에러 메시지 */}
-          {error && (
-            <div className="mb-4 text-sm text-red-600 dark:text-red-400">
-              {error}
-            </div>
-          )}
+          {error && <p className="text-red-500 mb-4 text-sm">{error}</p>}
 
-          {/* 폼 */}
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* 이름 (회원가입 - 옵션) */}
             {!isLoginMode && (
               <div>
-                <label className="block text-sm text-gray-900 dark:text-white mb-2 tracking-wide">
+                <label className="block text-sm text-gray-900 dark:text-white mb-2">
                   {t('auth.fullname')}
                 </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-0 py-3 bg-transparent border-0 border-b border-gray-300 dark:border-gray-700 focus:outline-none focus:border-gray-900 dark:focus:border-white text-gray-900 dark:text-white transition-colors placeholder:text-gray-400 dark:placeholder:text-gray-600"
+                  className="w-full px-0 py-3 bg-transparent border-0 border-b border-gray-300 dark:border-gray-700 focus:outline-none focus:border-gray-900 dark:focus:border-white text-gray-900 dark:text-white"
                   placeholder={t('auth.fullname.placeholder')}
+                  required
                 />
               </div>
             )}
 
-            {/* 이메일 */}
             <div>
-              <label className="block text-sm text-gray-900 dark:text-white mb-2 tracking-wide">
+              <label className="block text-sm text-gray-900 dark:text-white mb-2">
                 {t('auth.email')}
               </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-0 py-3 bg-transparent border-0 border-b border-gray-300 dark:border-gray-700 focus:outline-none focus:border-gray-900 dark:focus:border-white text-gray-900 dark:text-white transition-colors placeholder:text-gray-400 dark:placeholder:text-gray-600"
+                className="w-full px-0 py-3 bg-transparent border-0 border-b border-gray-300 dark:border-gray-700 focus:outline-none focus:border-gray-900 dark:focus:border-white text-gray-900 dark:text-white"
                 placeholder={t('auth.email.placeholder')}
                 required
               />
             </div>
 
-            {/* 비밀번호 */}
             <div>
-              <label className="block text-sm text-gray-900 dark:text-white mb-2 tracking-wide">
+              <label className="block text-sm text-gray-900 dark:text-white mb-2">
                 {t('auth.password')}
               </label>
               <div className="relative">
@@ -165,25 +108,20 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-0 py-3 bg-transparent border-0 border-b border-gray-300 dark:border-gray-700 focus:outline-none focus:border-gray-900 dark:focus:border-white text-gray-900 dark:text-white transition-colors placeholder:text-gray-400 dark:placeholder:text-gray-600"
+                  className="w-full px-0 py-3 bg-transparent border-0 border-b border-gray-300 dark:border-gray-700 focus:outline-none focus:border-gray-900 dark:focus:border-white text-gray-900 dark:text-white"
                   placeholder={t('auth.password.placeholder')}
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-0 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                  className="absolute right-0 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-900 dark:hover:text-white"
                 >
-                  {showPassword ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
-            {/* 버튼 */}
             <button
               type="submit"
               className="w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors mt-8 tracking-wide"
@@ -192,7 +130,6 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
             </button>
           </form>
 
-          {/* 로그인/회원가입 전환 */}
           <div className="mt-8 pt-8 border-t border-gray-200 dark:border-gray-800 text-center">
             <p className="text-sm text-gray-600 dark:text-gray-400">
               {isLoginMode ? (
@@ -200,7 +137,7 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
                   {t('auth.no.account')}{' '}
                   <button
                     onClick={() => setIsLoginMode(false)}
-                    className="text-gray-900 dark:text-white underline hover:no-underline transition-all"
+                    className="text-gray-900 dark:text-white underline hover:no-underline"
                   >
                     {t('auth.signup.link')}
                   </button>
@@ -210,7 +147,7 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
                   {t('auth.have.account')}{' '}
                   <button
                     onClick={() => setIsLoginMode(true)}
-                    className="text-gray-900 dark:text-white underline hover:no-underline transition-all"
+                    className="text-gray-900 dark:text-white underline hover:no-underline"
                   >
                     {t('auth.login.link')}
                   </button>
