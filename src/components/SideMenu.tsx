@@ -1,19 +1,21 @@
-import { X, Home, TrendingUp, Bookmark, Settings, HelpCircle } from 'lucide-react';
+import { Home, TrendingUp, Bookmark, Settings, X, Search } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface SideMenuProps {
   isOpen: boolean;
   onClose: () => void;
+  onFactoOpen: () => void;
 }
 
-export function SideMenu({ isOpen, onClose }: SideMenuProps) {
+export function SideMenu({ isOpen, onClose, onFactoOpen }: SideMenuProps) {
   const { t } = useLanguage();
   
   const menuItems = [
-    { icon: Home, label: t('menu.home'), href: '#' },
-    { icon: TrendingUp, label: t('menu.trending'), href: '#' },
-    { icon: Bookmark, label: t('menu.bookmarks'), href: '#' },
-    { icon: Settings, label: t('menu.settings'), href: '#' },
+    { icon: Home, label: t('menu.home'), href: '#', onClick: undefined },
+    { icon: TrendingUp, label: t('menu.trending'), href: '#', onClick: undefined },
+    { icon: Bookmark, label: t('menu.bookmarks'), href: '#', onClick: undefined },
+    { icon: Search, label: 'Facto', href: '#', onClick: () => { onFactoOpen(); onClose(); } },
+    { icon: Settings, label: t('menu.settings'), href: '#', onClick: undefined },
   ];
 
   return (
@@ -28,7 +30,7 @@ export function SideMenu({ isOpen, onClose }: SideMenuProps) {
 
       {/* 사이드 메뉴 - 상단바 아래에 위치 */}
       <aside 
-        className={`fixed top-[56px] sm:top-[64px] left-0 h-[calc(100vh-56px)] sm:h-[calc(100vh-64px)] w-72 sm:w-80 bg-white dark:bg-black z-40 transform transition-all duration-500 ease-out ${
+        className={`fixed top-[56px] sm:top-[64px] left-0 h-[calc(100vh-56px)] sm:h-[calc(100vh-64px)] w-80 sm:w-[360px] lg:w-96 bg-white dark:bg-black z-40 transform transition-all duration-500 ease-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -53,6 +55,12 @@ export function SideMenu({ isOpen, onClose }: SideMenuProps) {
                     <a 
                       href={item.href}
                       className="flex items-center gap-4 px-4 py-3 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors duration-200"
+                      onClick={(e) => {
+                        if (item.onClick) {
+                          e.preventDefault();
+                          item.onClick();
+                        }
+                      }}
                     >
                       <Icon className="w-5 h-5" />
                       <span>{item.label}</span>
