@@ -1,9 +1,6 @@
 import { X, Search, Sparkles } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
-import ReactMarkdown from 'react-markdown';
-import rehypeRaw from 'rehype-raw';
-import remarkGfm from 'remark-gfm';
 
 interface FactoModalProps {
   isOpen: boolean;
