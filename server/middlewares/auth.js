@@ -1,17 +1,18 @@
-import jwt from "jsonwebtoken";
-import "dotenv/config";
+import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+dotenv.config();
 
-export default function authMiddleware(req, res, next) {
+const JWT_SECRET = process.env.JWT_SECRET;
+const COOKIE_NAME = process.env.COOKIE_NAME;
+
+export function verifyToken(req, res, next) {
+  const token = req.cookies[COOKIE_NAME];
+  if (!token) return res.status(401).json({ error: '인증 필요' });
+
   try {
-    const token = req.cookies[process.env.COOKIE_NAME];
-
-    if (!token) return res.status(401).json({ error: "Unauthorized" });
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-
+    req.user = jwt.verify(token, JWT_SECRET);
     next();
-  } catch (e) {
-    return res.status(401).json({ error: "Invalid token" });
+  } catch {
+    res.status(401).json({ error: '토큰 유효하지 않음' });
   }
 }
