@@ -10,6 +10,7 @@ import { Footer } from './components/Footer';
 import { useDarkMode } from './hooks/useDarkMode';
 import { NewsService, NewsItem } from './lib/newsService';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
+import { FactoModal } from './components/FactoModal';
 
 export default function App() {
   return (
@@ -22,7 +23,7 @@ export default function App() {
 function AppContent() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('전체');
-  const [selectedCountry, setSelectedCountry] = useState('South Korea');
+  const [selectedCountry, setSelectedCountry] = useState('United States');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -33,12 +34,17 @@ function AppContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [error, setError] = useState('');
+  const [isFactoModalOpen, setIsFactoModalOpen] = useState(false);
 
+  // 다크모드 자동 인식
   useDarkMode();
+  
+  // 언어 컨텍스트 사용
   const { language, t } = useLanguage();
+
   const categories = ['전체', '정치', '경제', '사회', '기술', '엔터'];
 
+  // 뉴스 데이터 로드 - 언어가 변경될 때도 리로드
   useEffect(() => {
     loadNews();
   }, [selectedCategory, selectedCountry, language]);
@@ -48,65 +54,32 @@ function AppContent() {
     try {
       const news = await NewsService.getNewsByCategoryAndCountry(selectedCategory, selectedCountry, language);
       setNewsItems(news);
-    } catch (err) {
-      console.error('뉴스 로드 실패:', err);
+    } catch (error) {
+      console.error('뉴스 로드 실패:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // 뉴스 클릭 핸들러
   const handleNewsClick = async (news: NewsItem) => {
     setSelectedNews(news);
+    // 추천 뉴스 로드 - 같은 언어의 기사만
     const recommended = await NewsService.getRecommendedNews(news.id, news.category, language);
     setRecommendedNews(recommended);
   };
 
-  // 서버와 연동된 회원가입
-  const handleSignup = async (email: string, password: string, name: string) => {
-    setError('');
-    try {
-      const res = await fetch('http://localhost:4000/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email, password, name }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || '회원가입 실패');
-        return;
-      }
-      alert('회원가입이 완료되었습니다.');
-    } catch {
-      setError('서버와 통신할 수 없습니다.');
-    }
+  // 로그인 핸들러
+  const handleLogin = (email: string, password: string) => {
+    // 임시 로그인 로직
+    setIsLoggedIn(true);
+    setUserEmail(email);
+    setUserName(email.split('@')[0]); // 이메일에서 이름 추출
+    setUserImage('https://images.unsplash.com/photo-1614283233556-f35b0c801ef1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9maWxlJTIwcG9ydHJhaXR8ZW58MXx8fHwxNzYzOTcyNTY2fDA&ixlib=rb-4.1.0&q=80&w=1080');
+    setIsAuthModalOpen(false);
   };
 
-  // 서버와 연동된 로그인
-  const handleLogin = async (email: string, password: string) => {
-    setError('');
-    try {
-      const res = await fetch('http://localhost:4000/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || '로그인 실패');
-        return;
-      }
-      setIsLoggedIn(true);
-      setUserEmail(data.email);
-      setUserName(data.name);
-      setUserImage('https://images.unsplash.com/photo-1614283233556-f35b0c801ef1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9maWxlJTIwcG9ydHJhaXR8ZW58MXx8fHwxNzYzOTcyNTY2fDA&ixlib=rb-4.1.0&q=80&w=1080');
-      setIsAuthModalOpen(false);
-    } catch {
-      setError('서버와 통신할 수 없습니다.');
-    }
-  };
-
+  // 로그아웃 핸들러
   const handleLogout = () => {
     setIsLoggedIn(false);
     setUserName('');
@@ -116,6 +89,7 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-black flex flex-col">
+      {/* 헤더 */}
       <Header 
         onMenuClick={() => setIsMenuOpen(!isMenuOpen)}
         isLoggedIn={isLoggedIn}
@@ -126,12 +100,18 @@ function AppContent() {
         userName={userName}
         userImage={userImage}
         isMenuOpen={isMenuOpen}
+        isFactoOpen={isFactoModalOpen}
+        onFactoClose={() => setIsFactoModalOpen(false)}
       />
+
+      {/* 카테고리 바 */}
       <CategoryBar 
         categories={categories}
         selectedCategory={selectedCategory}
         onCategorySelect={setSelectedCategory}
       />
+
+      {/* 뉴스 목록 */}
       <main className="flex-1 max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 w-full">
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
@@ -140,7 +120,11 @@ function AppContent() {
         ) : newsItems.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
             {newsItems.map(item => (
-              <NewsCard key={item.id} {...item} onClick={() => handleNewsClick(item)} />
+              <NewsCard 
+                key={item.id} 
+                {...item} 
+                onClick={() => handleNewsClick(item)}
+              />
             ))}
           </div>
         ) : (
@@ -149,13 +133,30 @@ function AppContent() {
           </div>
         )}
       </main>
+
+      {/* 푸터 */}
       <Footer />
-      <SideMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+
+      {/* 사이드 메뉴 */}
+      <SideMenu 
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        onFactoOpen={() => setIsFactoModalOpen(true)}
+      />
+
+      {/* 로그인/회원가입 모달 */}
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
-        onLogin={handleLogin}
+        onLoginSuccess={(name, email) => {
+          setIsLoggedIn(true);
+          setUserName(name);
+          setUserEmail(email);
+          setUserImage('https://images.unsplash.com/photo-1614283233556-f35b0c801ef1?...');
+        }}
       />
+
+      {/* 프로필 설정 모달 */}
       <ProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
@@ -164,6 +165,8 @@ function AppContent() {
         userImage={userImage}
         onLogout={handleLogout}
       />
+
+      {/* 뉴스 상세 모달 */}
       {selectedNews && (
         <NewsDetailModal
           news={selectedNews}
@@ -171,6 +174,12 @@ function AppContent() {
           recommendedNews={recommendedNews}
         />
       )}
+
+      {/* Facto 모달 */}
+      <FactoModal 
+        isOpen={isFactoModalOpen} 
+        onClose={() => setIsFactoModalOpen(false)} 
+      />
     </div>
   );
 }
