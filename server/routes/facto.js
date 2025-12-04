@@ -3,6 +3,31 @@ import axios from 'axios';
 
 const router = express.Router();
 
+// 입력값이 URL인지 확인
+const isUrl = (text) => {
+  try {
+    const u = new URL(text);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+
+// URL에서 본문 가져오기 (간단 버전)
+async function fetchUrlContent(url) {
+  try {
+    const res = await axios.get(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36"
+      }
+    });
+    return res.data;
+  } catch (e) {
+    return null;
+  }
+}
+
 /**
  * 1) 사용자 입력 -> Gemini 요청 -> SerpAPI 검색 쿼리 생성
  * 2) SerpAPI 검색
@@ -11,9 +36,31 @@ const router = express.Router();
  */
 router.post('/analyze', async (req, res) => {
   try {
-    const { text } = req.body;
+    let { text } = req.body;
     if (!text || text.trim().length === 0) {
       return res.status(400).json({ error: 'No text provided' });
+    }
+
+    // ----------------------------
+    // (추가) 입력이 URL이면 본문 내용 가져오기
+    // ----------------------------
+    if (isUrl(text.trim())) {
+      const html = await fetchUrlContent(text.trim());
+      if (!html) {
+        return res.status(400).json({ error: 'URL content fetch failed' });
+      }
+
+      // HTML 제거 후 텍스트화
+      const plain = html
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (plain.length > 4000) {
+        text = plain.slice(0, 4000); // 너무 길면 4000자로 제한
+      }
     }
 
     // -------------------------------
@@ -91,9 +138,10 @@ ${JSON.stringify(serpResults, null, 2)}
 4. 마지막에 "최종 신뢰도 요약"을 제공하라.
 5. "출처" 섹션에서 참고한 검색 결과의 링크를 나열하라.
 6. 마크다운 문법보다는 html 태그를 사용하라. (**강조**가 아닌 <strong>강조</strong>, ~~취소선~~이 아닌 <ins>취소선</ins>)
+7. 크롤링, 또는 단순 복사로 인하여 광고 등 본문과는 전혀 관계 없는 이상한 내용이 있다면 제외하고 출력하라.
 
 출력 형식:
-[문장별로 색칠된 사용자 입력 (마크다운이 아닌 HTML 문법으로 작성된)]
+[문장별로 색칠된 사용자 입력 (마크다운이 아닌 HTML 문법으로 작성)]
 [최종 신뢰도 요약]
 `;
 
