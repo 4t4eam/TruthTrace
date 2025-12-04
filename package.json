@@ -53,6 +53,7 @@
         "bcryptjs": "^2.4.3",
         "jsonwebtoken": "^9.0.2",
         "react-markdown": "^8.0.7",
+        "axios": "^1.13.1",
         "uuid": "^9.0.1"
     },
     "devDependencies": {
